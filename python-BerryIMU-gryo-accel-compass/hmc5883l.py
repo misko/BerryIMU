@@ -11,6 +11,10 @@ import math
 import time
 import sys
 
+
+data=[]
+calibration=False
+
 class HMC5883L:
 
     __scales = {
@@ -43,27 +47,53 @@ class HMC5883L:
 
     def twos_complement(self, val, len):
         # Convert twos compliment to integer
+	#print "ts start",bin(val),val,len
         if (val & (1 << len - 1)):
+            #print "ts -sub",1<<len-1
             val = val - (1<<len)
+	#print "ts final",bin(val),val,len
         return val
 
     def __convert(self, data, offset):
-        val = self.twos_complement(data[offset] << 8 | data[offset+1], 16)
+	#print bin((data[offset] << 8) | data[offset+1])
+        #val = self.twos_complement( (data[offset] << 8) | data[offset+1] , 16)
+        val = self.twos_complement( ((data[offset] << 8) | data[offset+1]) & 0x0FFF , 12)
+	#print "BIN",bin(data[offset]),bin(data[offset+1]),val,(data[offset] << 8 ) + data[offset+1], ((data[offset] << 8 ) + data[offset+1]) & 0x0FFF
+	#val = ((data[offset] << 8 ) + data[offset+1]) & 0x0FFF
+	#val = ((data[offset] << 8 ) + data[offset+1]) & 0xFFFF
+	#if vv & 0x0800 >0 :
+	#	vv -= 1<<12 
+	#print vv,vv,vv
+        #val = self.twos_complement((data[offset] << 8 | data[offset+1]) & 0x0FFF , 16)
+        #val = self.twos_complement((data[offset] << 8 | data[offset+1]) & 0x0FFF , 12)
+        #val = data[offset] << 8 | data[offset+1]
+	#if val > 32767 :
+        #	val -= 65536
         if val == -4096: return None
+	#print "BIN val",bin(val),val,self.__scale
         return round(val * self.__scale, 4)
+        #return round(val *0.25, 4)
 
     def axes(self):
-        data = self.bus.read_i2c_block_data(self.address, 0x00)
+        d = self.bus.read_i2c_block_data(self.address, 0x03,6)
         #print map(hex, data)
-        x = self.__convert(data, 3)
-        y = self.__convert(data, 7)
-        z = self.__convert(data, 5)
+        x = self.__convert(d, 3-3)+242
+	#https://github.com/jarzebski/Arduino-HMC5883L/blob/master/HMC5883L_calibrate/HMC5883L_calibrate.ino
+        y = self.__convert(d, 7-3)+502
+        z = self.__convert(d, 5-3)
+	if calibration:
+		data.append((x,y,z))
         return (x,y,z)
 
     def heading(self):
         (x, y, z) = self.axes()
-        headingRad = math.atan2(y, x)
+	#print("DO TAN",y,x)
+        #headingRad = math.atan2(y, x)
+        #headingRad = math.atan2(-x, -y)
+        headingRad = math.atan2(-y, -x)
+	#print("X",headingRad)
         headingRad += self.__declination
+	#print("Y",headingRad)
 
         # Correct for reversed heading
         if headingRad < 0:
@@ -92,9 +122,28 @@ class HMC5883L:
 
 if __name__ == "__main__":
     # http://magnetic-declination.com/Great%20Britain%20(UK)/Harrogate#
-    compass = HMC5883L(gauss = 4.7, declination = (-2,5))
+    #compass = HMC5883L(gauss = 4.7, declination = (13,38)) #san francisco
+    #compass = HMC5883L(gauss = 4.7, declination = (0,0)) #san francisco
+    if len(sys.argv)!=2:
+	print "python %s T/F[calibration]" % sys.argv[0]
+	sys.exit(1)
+    if sys.argv[1]=='T':
+	calibration=True
+    compass = HMC5883L(gauss = 1.3, declination = (0,0)) #san francisco
     while True:
-        sys.stdout.write("\rHeading: " + str(compass.degrees(compass.heading())) + "     ")
-        sys.stdout.flush()
+        print "Heading: " + str(compass.degrees(compass.heading())) 
+        #sys.stdout.write("\rHeading: " + str(compass.degrees(compass.heading())) + "     ")
+        #sys.stdout.flush()
+	if calibration:
+		maxes=list(data[0])
+		mins=list(data[0])
+		for d in data:
+			for i in range(3):
+				if d[i]>maxes[i]:
+					maxes[i]=d[i]
+				if d[i]<mins[i]:
+					mins[i]=d[i]	
+		print "maxes", maxes
+		print "mins", mins	
         time.sleep(0.5)
 

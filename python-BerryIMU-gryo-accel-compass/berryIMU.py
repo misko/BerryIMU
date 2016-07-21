@@ -152,7 +152,9 @@ def readMAG():
 adxl345 = ADXL345()
 
 #initialise the magnetomete
-hmc5883l = HMC5883L(gauss = 4.7, declination = (-2,5))
+#http://www.magnetic-declination.com
+#hmc5883l = HMC5883L(gauss = 4.7, declination = (-2,5))
+hmc5883l = HMC5883L(gauss = 4.7, declination = (13,38)) # San Francisco
 
 #initialise the gyroscope
 itg3200 = SensorITG3200(1, 0x68) # update with your bus number and address
@@ -206,21 +208,21 @@ while True:
     	#
     	#Two different pieces of code are used depending on how your IMU is mounted.
 	#If IMU is up the correct way, Skull logo is facing down, Use these lines
-	AccXangle -= 180.0
-	if AccYangle > 90:
-		AccYangle -= 270.0
-	else:
-		AccYangle += 90.0
+	#AccXangle -= 180.0
+	#if AccYangle > 90:
+	#	AccYangle -= 270.0
+	#else:
+	#	AccYangle += 90.0
 	#
 	#
 	#
 	#
 	#If IMU is upside down E.g Skull logo is facing up;
-	#if AccXangle >180:
-    	#        AccXangle -= 360.0
-	#AccYangle-=90
-	#if (AccYangle >180):
-    	#        AccYangle -= 360.0
+	if AccXangle >180:
+    	        AccXangle -= 360.0
+	AccYangle-=90
+	if (AccYangle >180):
+    	        AccYangle -= 360.0
 	############################ END ##################################
 
 
